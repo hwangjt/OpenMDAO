@@ -16,7 +16,7 @@ You can see the coupling between the two disciplines show up through the :math:`
 
 .. figure:: images/sellar_xdsm.png
    :align: center
-   :width: 80%
+   :width: 50%
    :alt: XDSM diagram of the Sellar problem
 
 ----
@@ -24,14 +24,14 @@ You can see the coupling between the two disciplines show up through the :math:`
 Building the Disciplinary Components
 ****************************************
 
-In the component definitions, there is a call to :ref:`approx_partials <feature_approx_partials>` in the setup method that looks like this:
+In the component definitions, there is a call to :ref:`declare_partials <feature_delare_partials_approx>` in the setup method that looks like this:
 
 .. code::
 
-    self.approx_partials('*', '*', method='fd')
+    self.declare_partials('*', '*', method='fd')
 
 This tells OpenMDAO to approximate all the partial derivatives of that component using finite-difference.
-The default settings will use forward difference with an absolute step size of 1e-6, but you can change the :ref:`FD settings <feature_approx_partials>` to work well for you component.
+The default settings will use forward difference with an absolute step size of 1e-6, but you can change the :ref:`FD settings <feature_delare_partials_approx>` to work well for your component.
 
 .. embed-code::
     openmdao.test_suite.components.sellar_feature.SellarDis1
@@ -42,7 +42,7 @@ The default settings will use forward difference with an absolute step size of 1
 
 
 
-Grouping Components and Connecting them Together
+Grouping and Connecting Components
 **************************************************
 
 We want to build the model represented by the XDSM diagram above.
@@ -69,7 +69,7 @@ Then inside the :code:`setup` method of :code:`SellarMDA` we're also working dir
     d1 = cycle.add_subsystem('d1', SellarDis1(), promotes_inputs=['x', 'z', 'y2'], promotes_outputs=['y1'])
     d2 = cycle.add_subsystem('d2', SellarDis2(), promotes_inputs=['z', 'y1'], promotes_outputs=['y2'])
 
-    # Nonlinear Block Gauss Seidel is a gradient free solver
+    # Nonlinear Block Gauss Seidel is a gradient-free solver
     cycle.nonlinear_solver = NonlinearBlockGS()
 
 
@@ -77,7 +77,7 @@ Our :code:`SellarMDA` Group, when instantiated, will have a three level hierarch
 
 .. figure:: images/sellar_tree.png
    :align: center
-   :width: 80%
+   :width: 50%
    :alt: hierarchy tree for the Sellar group
 
 Why do we create the *cycle* sub-group?
@@ -93,7 +93,7 @@ You can pick which kind of solver you would like to use to converge the MDA. The
     #. :ref:`NewtonSolver <nlnewton>`
 
 
-The :code:`NonlinearBlockGaussSeidel` solver, also sometimes called a "fixed point iteration solver", is a gradient free method
+The :code:`NonlinearBlockGaussSeidel` solver, also sometimes called a "fixed-point iteration solver", is a gradient-free method
 that works well in many situations.
 More tightly coupled problems, or problems with instances of :ref:`ImplicitComponent <comp-type-3-implicitcomp>` that don't implement their own :code:'solve_nonlinear' method, will require the :code:`Newton` solver.
 
@@ -102,7 +102,7 @@ More tightly coupled problems, or problems with instances of :ref:`ImplicitCompo
     See the full list :ref:`here <feature_nonlinear_solvers>`
 
 
-The sub-group, named :code:`cycle`, is useful here, because it contains the multi-disciplinary coupling of the Sellar problem.
+The sub-group, named :code:`cycle`, is useful here, because it contains the multidisciplinary coupling of the Sellar problem.
 This allows us to assign the non-linear solver to :code:`cycle` to just converge those two components, before moving on to the final
 calculations for the :code:`obj_cmp`, :code:`con_cmp1`, and :code:`con_cmp2` to compute the actual outputs of the problem.
 
