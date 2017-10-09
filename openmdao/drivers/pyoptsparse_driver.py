@@ -243,7 +243,8 @@ class pyOptSparseDriver(Driver):
             if meta['linear']:
                 opt_prob.addConGroup(name, size, lower=lower, upper=upper,
                                      linear=True, wrt=wrt,
-                                     jac=_lin_jacs[name])
+                                     jac={wrt_key: _lin_jacs[name][wrt_key] for wrt_key in wrt})
+                                     #jac=_lin_jacs[name])
             else:
                 opt_prob.addConGroup(name, size, lower=lower, upper=upper, wrt=wrt)
                 self._quantities.append(name)
@@ -267,7 +268,8 @@ class pyOptSparseDriver(Driver):
             if meta['linear']:
                 opt_prob.addConGroup(name, size, upper=upper, lower=lower,
                                      linear=True, wrt=wrt,
-                                     jac=_lin_jacs[name])
+                                     jac={wrt_key: _lin_jacs[name][wrt_key] for wrt_key in wrt})
+                                     #jac=_lin_jacs[name])
             else:
                 opt_prob.addConGroup(name, size, upper=upper, lower=lower, wrt=wrt)
                 self._quantities.append(name)
