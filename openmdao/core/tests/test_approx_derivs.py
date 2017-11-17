@@ -6,8 +6,8 @@ from parameterized import parameterized
 
 import numpy as np
 
-from openmdao.api import Problem, Group, IndepVarComp, ScipyIterativeSolver, ExecComp, NewtonSolver, \
-     ExplicitComponent, DefaultVector, NonlinearBlockGS, LinearRunOnce
+from openmdao.api import Problem, Group, IndepVarComp, ScipyKrylov, ExecComp, NewtonSolver, \
+     ExplicitComponent, DefaultVector, NonlinearBlockGS, LinearRunOnce, DenseJacobian
 from openmdao.devtools.testutil import assert_rel_error
 from openmdao.test_suite.components.impl_comp_array import TestImplCompArray, TestImplCompArrayDense
 from openmdao.test_suite.components.paraboloid import Paraboloid
@@ -30,7 +30,7 @@ class TestGroupFiniteDifference(unittest.TestCase):
         model.add_subsystem('p2', IndepVarComp('y', 0.0), promotes=['y'])
         model.add_subsystem('comp', Paraboloid(), promotes=['x', 'y', 'f_xy'])
 
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
         model.approx_totals()
 
         prob.setup(check=False, mode='fwd')
@@ -55,7 +55,7 @@ class TestGroupFiniteDifference(unittest.TestCase):
         sub = model.add_subsystem('sub', Group(), promotes=['x', 'y', 'f_xy'])
         sub.add_subsystem('comp', Paraboloid(), promotes=['x', 'y', 'f_xy'])
 
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
         sub.approx_totals()
 
         prob.setup(check=False, mode='fwd')
@@ -74,7 +74,6 @@ class TestGroupFiniteDifference(unittest.TestCase):
         assert_rel_error(self, Jfd['sub.comp.f_xy', 'sub.comp.y'], [[-8.0]], 1e-6)
 
         # 1 output x 2 inputs
-        sub = model.get_subsystem('sub')
         self.assertEqual(len(sub._approx_schemes['fd']._exec_list), 2)
 
     def test_paraboloid_subbed_in_setup(self):
@@ -91,7 +90,7 @@ class TestGroupFiniteDifference(unittest.TestCase):
         model.add_subsystem('p2', IndepVarComp('y', 0.0), promotes=['y'])
         sub = model.add_subsystem('sub', MyModel(), promotes=['x', 'y', 'f_xy'])
 
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
 
         prob.setup(check=False, mode='fwd')
         prob.set_solver_print(level=0)
@@ -109,7 +108,6 @@ class TestGroupFiniteDifference(unittest.TestCase):
         assert_rel_error(self, Jfd['sub.comp.f_xy', 'sub.comp.y'], [[-8.0]], 1e-6)
 
         # 1 output x 2 inputs
-        sub = model.get_subsystem('sub')
         self.assertEqual(len(sub._approx_schemes['fd']._exec_list), 2)
 
     def test_paraboloid_subbed_with_connections(self):
@@ -127,7 +125,7 @@ class TestGroupFiniteDifference(unittest.TestCase):
         model.connect('p2.y', 'sub.by.yin')
         model.connect('sub.by.yout', 'sub.comp.y')
 
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
         sub.approx_totals()
 
         prob.setup(check=False, mode='fwd')
@@ -146,7 +144,6 @@ class TestGroupFiniteDifference(unittest.TestCase):
         assert_rel_error(self, Jfd['sub.comp.f_xy', 'sub.by.yin'], [[-8.0]], 1e-6)
 
         # 3 outputs x 2 inputs
-        sub = model.get_subsystem('sub')
         self.assertEqual(len(sub._approx_schemes['fd']._exec_list), 6)
 
     def test_arrray_comp(self):
@@ -168,7 +165,7 @@ class TestGroupFiniteDifference(unittest.TestCase):
         model.connect('p1.x1', 'comp.x1')
         model.connect('p2.x2', 'comp.x2')
 
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
         model.approx_totals()
 
         prob.setup(check=False)
@@ -198,7 +195,7 @@ class TestGroupFiniteDifference(unittest.TestCase):
         comp = sub.add_subsystem('comp', TestImplCompArrayDense())
         model.connect('p_rhs.rhs', 'sub.comp.rhs')
 
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
 
         prob.setup(check=False)
         prob.run_model()
@@ -226,7 +223,7 @@ class TestGroupFiniteDifference(unittest.TestCase):
         model.connect('p_rhs.rhs', 'comp.rhs')
 
         model.nonlinear_solver = NewtonSolver()
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
         model.approx_totals()
 
         prob.setup(check=False)
@@ -250,7 +247,7 @@ class TestGroupFiniteDifference(unittest.TestCase):
         model.add_subsystem('p2', IndepVarComp('y', 0.0), promotes=['y'])
         model.add_subsystem('comp', Paraboloid(), promotes=['x', 'y', 'f_xy'])
 
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
 
         # Worse step so that our answer will be off a wee bit.
         model.approx_totals(step=1e-2)
@@ -314,7 +311,7 @@ class TestGroupFiniteDifference(unittest.TestCase):
     def test_sellar(self):
         # Basic sellar test.
 
-        prob = self.prob = Problem()
+        prob = Problem()
         model = prob.model = Group()
 
         model.add_subsystem('px', IndepVarComp('x', 1.0), promotes=['x'])
@@ -388,7 +385,7 @@ class TestGroupFiniteDifference(unittest.TestCase):
         prob.model = model = Group()
         model.add_subsystem('x_param1', IndepVarComp('x1', np.ones((4))),
                             promotes=['x1'])
-        model.add_subsystem('mycomp', ArrayComp2D(), promotes=['x1', 'y1'])
+        mycomp = model.add_subsystem('mycomp', ArrayComp2D(), promotes=['x1', 'y1'])
 
         model.add_design_var('x1', indices=[1, 3])
         model.add_constraint('y1')
@@ -399,7 +396,7 @@ class TestGroupFiniteDifference(unittest.TestCase):
         prob.setup(check=False, mode='fwd')
         prob.run_model()
 
-        Jbase = model.get_subsystem('mycomp').JJ
+        Jbase = mycomp.JJ
         of = ['y1']
         wrt = ['x1']
 
@@ -447,7 +444,7 @@ class TestGroupFiniteDifference(unittest.TestCase):
         prob.model = model = Group()
         model.add_subsystem('x_param1', IndepVarComp('x1', np.ones((4))),
                             promotes=['x1'])
-        model.add_subsystem('mycomp', ArrayComp2D(), promotes=['x1', 'y1'])
+        mycomp = model.add_subsystem('mycomp', ArrayComp2D(), promotes=['x1', 'y1'])
 
         model.add_design_var('x1', indices=[1, 3])
         model.add_constraint('y1', indices=[0, 2])
@@ -458,7 +455,7 @@ class TestGroupFiniteDifference(unittest.TestCase):
         prob.setup(check=False, mode='fwd')
         prob.run_model()
 
-        Jbase = model.get_subsystem('mycomp').JJ
+        Jbase = mycomp.JJ
         of = ['y1']
         wrt = ['x1']
 
@@ -508,6 +505,46 @@ class TestGroupFiniteDifference(unittest.TestCase):
 
         assert_rel_error(self, derivs['comp.y']['p1.x'], [[4.0]], 1e-6)
 
+    def test_newton_with_densejac_under_full_model_fd(self):
+        # Basic sellar test.
+
+        prob = Problem()
+        model = prob.model = Group()
+        sub = model.add_subsystem('sub', Group(), promotes=['*'])
+
+        model.add_subsystem('px', IndepVarComp('x', 1.0), promotes=['x'])
+        model.add_subsystem('pz', IndepVarComp('z', np.array([5.0, 2.0])), promotes=['z'])
+
+        sub.add_subsystem('d1', SellarDis1withDerivatives(), promotes=['x', 'z', 'y1', 'y2'])
+        sub.add_subsystem('d2', SellarDis2withDerivatives(), promotes=['z', 'y1', 'y2'])
+
+        model.add_subsystem('obj_cmp', ExecComp('obj = x**2 + z[1] + y1 + exp(-y2)',
+                                               z=np.array([0.0, 0.0]), x=0.0),
+                           promotes=['obj', 'x', 'z', 'y1', 'y2'])
+
+        model.add_subsystem('con_cmp1', ExecComp('con1 = 3.16 - y1'), promotes=['con1', 'y1'])
+        model.add_subsystem('con_cmp2', ExecComp('con2 = y2 - 24.0'), promotes=['con2', 'y2'])
+
+        sub.nonlinear_solver = NewtonSolver()
+        sub.linear_solver = ScipyKrylov()
+
+        model.jacobian = DenseJacobian()
+        model.approx_totals(method='fd', step=1e-5)
+
+        prob.setup(check=False)
+        prob.set_solver_print(level=0)
+        prob.run_model()
+
+        assert_rel_error(self, prob['y1'], 25.58830273, .00001)
+        assert_rel_error(self, prob['y2'], 12.05848819, .00001)
+
+        wrt = ['z']
+        of = ['obj']
+
+        J = prob.compute_totals(of=of, wrt=wrt, return_format='flat_dict')
+        assert_rel_error(self, J['obj', 'z'][0][0], 9.61001056, .00001)
+        assert_rel_error(self, J['obj', 'z'][0][1], 1.78448534, .00001)
+
 
 def title(txt):
     """ Provide nice title for parameterized testing."""
@@ -542,7 +579,7 @@ class TestGroupComplexStep(unittest.TestCase):
         model.add_subsystem('p2', IndepVarComp('y', 0.0), promotes=['y'])
         model.add_subsystem('comp', Paraboloid(), promotes=['x', 'y', 'f_xy'])
 
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
         model.approx_totals(method='cs')
 
         prob.setup(check=False, vector_class=vec_class, mode='fwd')
@@ -575,7 +612,7 @@ class TestGroupComplexStep(unittest.TestCase):
         sub = model.add_subsystem('sub', Group(), promotes=['x', 'y', 'f_xy'])
         sub.add_subsystem('comp', Paraboloid(), promotes=['x', 'y', 'f_xy'])
 
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
         sub.approx_totals(method='cs')
 
         prob.setup(check=False, vector_class=vec_class, mode='fwd')
@@ -594,7 +631,6 @@ class TestGroupComplexStep(unittest.TestCase):
         assert_rel_error(self, Jfd['sub.comp.f_xy', 'sub.comp.y'], [[-8.0]], 1e-6)
 
         # 1 output x 2 inputs
-        sub = model.get_subsystem('sub')
         self.assertEqual(len(sub._approx_schemes['cs']._exec_list), 2)
 
     @parameterized.expand(itertools.product(
@@ -620,7 +656,7 @@ class TestGroupComplexStep(unittest.TestCase):
         model.connect('p2.y', 'sub.by.yin')
         model.connect('sub.by.yout', 'sub.comp.y')
 
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
         sub.approx_totals(method='cs')
 
         prob.setup(check=False, vector_class=vec_class, mode='fwd')
@@ -639,7 +675,6 @@ class TestGroupComplexStep(unittest.TestCase):
         assert_rel_error(self, Jfd['sub.comp.f_xy', 'sub.by.yin'], [[-8.0]], 1e-6)
 
         # 3 outputs x 2 inputs
-        sub = model.get_subsystem('sub')
         self.assertEqual(len(sub._approx_schemes['cs']._exec_list), 6)
 
     @parameterized.expand(itertools.product(
@@ -668,7 +703,7 @@ class TestGroupComplexStep(unittest.TestCase):
         model.connect('p1.x1', 'comp.x1')
         model.connect('p2.x2', 'comp.x2')
 
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
         model.approx_totals(method='cs')
 
         prob.setup(check=False, vector_class=vec_class)
@@ -816,7 +851,7 @@ class TestGroupComplexStep(unittest.TestCase):
         prob.model = model = Group()
         model.add_subsystem('x_param1', IndepVarComp('x1', np.ones((4))),
                             promotes=['x1'])
-        model.add_subsystem('mycomp', ArrayComp2D(), promotes=['x1', 'y1'])
+        mycomp = model.add_subsystem('mycomp', ArrayComp2D(), promotes=['x1', 'y1'])
 
         model.add_design_var('x1', indices=[1, 3])
         model.add_constraint('y1', indices=[0, 2])
@@ -827,7 +862,7 @@ class TestGroupComplexStep(unittest.TestCase):
         prob.setup(check=False, mode='fwd')
         prob.run_model()
 
-        Jbase = model.get_subsystem('mycomp').JJ
+        Jbase = mycomp.JJ
         of = ['y1']
         wrt = ['x1']
 
@@ -876,7 +911,7 @@ class TestGroupComplexStep(unittest.TestCase):
         prob.model = model = Group()
         model.add_subsystem('x_param1', IndepVarComp('x1', np.ones((4))),
                             promotes=['x1'])
-        model.add_subsystem('mycomp', ArrayComp2D(), promotes=['x1', 'y1'])
+        mycomp = model.add_subsystem('mycomp', ArrayComp2D(), promotes=['x1', 'y1'])
 
         model.add_design_var('x1', indices=[1, 3])
         model.add_constraint('y1')
@@ -887,7 +922,7 @@ class TestGroupComplexStep(unittest.TestCase):
         prob.setup(check=False, mode='fwd')
         prob.run_model()
 
-        Jbase = model.get_subsystem('mycomp').JJ
+        Jbase = mycomp.JJ
         of = ['y1']
         wrt = ['x1']
 
@@ -920,7 +955,7 @@ class TestComponentComplexStep(unittest.TestCase):
         comp = sub.add_subsystem('comp', TestImplCompArrayDense())
         model.connect('p_rhs.rhs', 'sub.comp.rhs')
 
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
 
         prob.setup(check=False)
         prob.run_model()
@@ -958,7 +993,7 @@ class TestComponentComplexStep(unittest.TestCase):
         comp = sub.add_subsystem('comp', TestImplCompArrayDense())
         model.connect('p_rhs.rhs', 'sub.comp.rhs')
 
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
 
         prob.setup(check=False)
         prob.run_model()
@@ -1029,6 +1064,9 @@ class TestComponentComplexStep(unittest.TestCase):
 class ApproxTotalsFeature(unittest.TestCase):
 
     def test_basic(self):
+        import numpy as np
+
+        from openmdao.api import Problem, Group, IndepVarComp, ScipyKrylov, ExplicitComponent
 
         class CompOne(ExplicitComponent):
 
@@ -1062,7 +1100,7 @@ class ApproxTotalsFeature(unittest.TestCase):
         model.add_subsystem('comp1', CompOne(), promotes=['x', 'y'])
         comp2 = model.add_subsystem('comp2', CompTwo(), promotes=['y', 'z'])
 
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
         model.approx_totals()
 
         prob.setup()
@@ -1076,6 +1114,9 @@ class ApproxTotalsFeature(unittest.TestCase):
         self.assertEqual(comp2._exec_count, 2)
 
     def test_basic_cs(self):
+        import numpy as np
+
+        from openmdao.api import Problem, Group, IndepVarComp, ScipyKrylov, ExplicitComponent
 
         class CompOne(ExplicitComponent):
 
@@ -1109,7 +1150,7 @@ class ApproxTotalsFeature(unittest.TestCase):
         model.add_subsystem('comp1', CompOne(), promotes=['x', 'y'])
         comp2 = model.add_subsystem('comp2', CompTwo(), promotes=['y', 'z'])
 
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
         model.approx_totals(method='cs')
 
         prob.setup()
@@ -1122,6 +1163,9 @@ class ApproxTotalsFeature(unittest.TestCase):
         assert_rel_error(self, derivs['z', 'x'], [[300.0]], 1e-6)
 
     def test_arguments(self):
+        import numpy as np
+
+        from openmdao.api import Problem, Group, IndepVarComp, ScipyKrylov, ExplicitComponent
 
         class CompOne(ExplicitComponent):
 
@@ -1155,7 +1199,7 @@ class ApproxTotalsFeature(unittest.TestCase):
         model.add_subsystem('comp1', CompOne(), promotes=['x', 'y'])
         comp2 = model.add_subsystem('comp2', CompTwo(), promotes=['y', 'z'])
 
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
         model.approx_totals(method='fd', step=1e-7, form='central', step_calc='rel')
 
         prob.setup()
@@ -1169,6 +1213,10 @@ class ApproxTotalsFeature(unittest.TestCase):
 
     def test_sellarCS(self):
         # Just tests Newton on Sellar with FD derivs.
+        import numpy as np
+
+        from openmdao.api import Problem
+        from openmdao.test_suite.components.sellar_feature import SellarNoDerivativesCS
 
         prob = Problem()
         prob.model = SellarNoDerivativesCS()

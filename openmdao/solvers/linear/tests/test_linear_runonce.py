@@ -19,9 +19,9 @@ class TestLinearRunOnceSolver(unittest.TestCase):
         prob.model.linear_solver = LinearRunOnce()
         prob.set_solver_print(level=0)
 
-        g1 = prob.model.get_subsystem('g1')
-        g2 = g1.get_subsystem('g2')
-        g3 = prob.model.get_subsystem('g3')
+        g1 = prob.model.g1
+        g2 = g1.g2
+        g3 = prob.model.g3
         g1.linear_solver = LinearRunOnce()
         g2.linear_solver = LinearRunOnce()
         g3.linear_solver = LinearRunOnce()
@@ -45,6 +45,8 @@ class TestLinearRunOnceSolver(unittest.TestCase):
         assert_rel_error(self, J['c7.y1', 'iv.x'][0][0], -40.75, 1e-6)
 
     def test_feature_solver(self):
+        from openmdao.api import Problem, Group, IndepVarComp, LinearRunOnce
+        from openmdao.test_suite.components.paraboloid import Paraboloid
 
         prob = Problem()
         model = prob.model = Group()

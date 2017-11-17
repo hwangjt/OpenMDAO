@@ -2,6 +2,7 @@
 from __future__ import division
 
 import sys
+from collections import defaultdict
 
 from six import iteritems
 
@@ -44,6 +45,9 @@ class AssembledJacobian(Jacobian):
     _mask_caches : dict
         Contains masking arrays for when a subset of the variables are present in a vector, keyed
         by the input._names set.
+    _subjac_iters : dict
+        Mapping of system pathname to tuple of lists of absolute key tuples used to index into
+        the jacobian.
     """
 
     def __init__(self, **kwargs):
@@ -68,6 +72,8 @@ class AssembledJacobian(Jacobian):
         self._ext_mtx = {}
         self._keymap = {}
         self._mask_caches = {}
+
+        self._subjac_iters = defaultdict(lambda: None)
 
     def _get_var_range(self, abs_name, type_):
         """
@@ -282,26 +288,54 @@ class AssembledJacobian(Jacobian):
         Read the user's sub-Jacobians and set into the global matrix.
         """
         system = self._system
+        ext_mtx = self._ext_mtx[system.pathname]
+        iters = self._subjac_iters[system.pathname]
+        if iters is None:
 
-        for res_abs_name in system._var_abs_names['output']:
+            # This is the level where the AssembledJacobian is slotted.
+            # The of and wrt are the inputs and outputs that it sees, if they are in the subjacs.
+            # TODO - For top level FD, the subjacs might not contain all derivs.
 
-            for out_abs_name in system._var_abs_names['output']:
+            iters_out = []
+            iters_in = []
+            iters_in_ext = []
+            for res_abs_name in system._var_abs_names['output']:
+                for out_abs_name in system._var_abs_names['output']:
+                    abs_key = (res_abs_name, out_abs_name)
+                    if abs_key in self._subjacs:
+                        iters_out.append(abs_key)
 
-                abs_key = (res_abs_name, out_abs_name)
-                if abs_key in self._subjacs:
-                    self._int_mtx._update_submat(abs_key, self._subjacs[abs_key])
+                for in_abs_name in system._var_abs_names['input']:
+                    abs_key = (res_abs_name, in_abs_name)
+                    if abs_key in self._subjacs:
+                        if in_abs_name in system._conn_global_abs_in2out:
+                            iters_in.append(abs_key)
+                        elif ext_mtx is not None:
+                            iters_in_ext.append(abs_key)
 
-            for in_abs_name in system._var_abs_names['input']:
+            self._subjac_iters[system.pathname] = (iters_out, iters_in, iters_in_ext)
+        else:
+            iters_out, iters_in, iters_in_ext = iters
 
-                abs_key = (res_abs_name, in_abs_name)
-                if abs_key in self._subjacs:
+        int_mtx = self._int_mtx
+        for abs_key in iters_out:
+            if iters is None and abs_key not in int_mtx._submats:
 
-                    if in_abs_name in system._conn_global_abs_in2out:
-                        self._int_mtx._update_submat(self._keymap[abs_key],
-                                                     self._subjacs[abs_key])
-                    elif self._ext_mtx[system.pathname] is not None:
-                        self._ext_mtx[system.pathname]._update_submat(abs_key,
-                                                                      self._subjacs[abs_key])
+                # This happens when the input is an indepvarcomp that is contained in the system.
+                of, wrt = abs_key
+                for tgt, src in iteritems(system._conn_global_abs_in2out):
+                    if src == wrt and (of, tgt) in int_mtx._submats:
+                        int_mtx._update_submat((of, tgt), self._subjacs[abs_key])
+                        break
+
+            else:
+                int_mtx._update_submat(abs_key, self._subjacs[abs_key])
+
+        for abs_key in iters_in:
+            int_mtx._update_submat(self._keymap[abs_key], self._subjacs[abs_key])
+
+        for abs_key in iters_in_ext:
+            ext_mtx._update_submat(abs_key, self._subjacs[abs_key])
 
     def _apply(self, d_inputs, d_outputs, d_residuals, mode):
         """
@@ -378,10 +412,10 @@ class AssembledJacobian(Jacobian):
                         mask[mask_cols, :] = True
                         masked_mtx = np.ma.array(ext_mtx._matrix, mask=mask, fill_value=0.0)
 
-                        masked_product = np.ma.multiply(masked_mtx.T, dresids).flatten()
+                        masked_product = np.ma.dot(masked_mtx.T, dresids).flatten()
 
                         for set_name, data in iteritems(d_inputs._data):
-                            data += np.ma.filled(masked_product)
+                            data += np.ma.filled(masked_product, fill_value=0.0)
 
                     else:
                         d_inputs.iadd_data(ext_mtx._prod(dresids, mode, None))

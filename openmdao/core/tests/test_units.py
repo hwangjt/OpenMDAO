@@ -71,6 +71,9 @@ class TestUnitConversion(unittest.TestCase):
         # this test passes as long as it doesn't raise an exception
 
     def test_speed(self):
+        from openmdao.api import Problem, Group, IndepVarComp, ExecComp
+        from openmdao.core.tests.test_units import SpeedComp
+
         comp = IndepVarComp()
         comp.add_output('distance', val=1., units='m')
         comp.add_output('time', val=1., units='s')
@@ -152,7 +155,7 @@ class TestUnitConversion(unittest.TestCase):
                 """ Pass through."""
                 outputs['x2'] = inputs['x1']
 
-            def compute_jacvec_product(self, inputs, outputs, d_inputs, d_outputs, mode):
+            def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
                 """ Derivative is 1.0"""
 
                 if mode == 'fwd':
@@ -172,7 +175,7 @@ class TestUnitConversion(unittest.TestCase):
                 """ Pass through."""
                 outputs['x3'] = inputs['x2']
 
-            def compute_jacvec_product(self, inputs, outputs, d_inputs, d_outputs, mode):
+            def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
                 """ Derivative is 1.0"""
 
                 if mode == 'fwd':
@@ -663,7 +666,7 @@ class TestUnitConversion(unittest.TestCase):
         #root.connect('sub.cc2.y', 'sub.cc1.x2')
 
         #root.nonlinear_solver = Newton()
-        #root.linear_solver = ScipyGMRES()
+        #root.linear_solver = ScipyKrylov()
 
         #sub.nonlinear_solver = Newton()
         #sub.linear_solver = DirectSolver()
@@ -711,7 +714,7 @@ class TestUnitConversion(unittest.TestCase):
 
         #root.nonlinear_solver = Newton()
         #root.nonlinear_solver.options['maxiter'] = 1
-        #root.linear_solver = ScipyGMRES()
+        #root.linear_solver = ScipyKrylov()
         #root.linear_solver.options['maxiter'] = 1
 
         #sub.nonlinear_solver = Newton()
@@ -749,7 +752,7 @@ class TestUnitConversion(unittest.TestCase):
 
         #root.nonlinear_solver = Newton()
         #root.nonlinear_solver.options['maxiter'] = 1
-        #root.linear_solver = ScipyGMRES()
+        #root.linear_solver = ScipyKrylov()
         #root.linear_solver.options['maxiter'] = 1
         #root.linear_solver.options['mode'] = 'rev'
 
@@ -829,7 +832,7 @@ class TestUnitConversion(unittest.TestCase):
 
         #root.nonlinear_solver = Newton()
         #root.nonlinear_solver.options['maxiter'] = 1
-        #root.linear_solver = ScipyGMRES()
+        #root.linear_solver = ScipyKrylov()
         #root.linear_solver.options['maxiter'] = 1
         #root.linear_solver.options['mode'] = 'rev'
 
@@ -870,11 +873,11 @@ class TestUnitConversion(unittest.TestCase):
 
         #root.nonlinear_solver = Newton()
         #root.nonlinear_solver.options['maxiter'] = 1
-        #root.linear_solver = ScipyGMRES()
+        #root.linear_solver = ScipyKrylov()
         #root.linear_solver.options['maxiter'] = 1
 
         #sub.nonlinear_solver = Newton()
-        #sub.linear_solver = ScipyGMRES()
+        #sub.linear_solver = ScipyKrylov()
 
         #prob.driver.add_desvar('p1.xx')
         #prob.driver.add_objective('sub.cc2.y')
@@ -912,11 +915,11 @@ class TestUnitConversion(unittest.TestCase):
 
         #root.nonlinear_solver = Newton()
         #root.nonlinear_solver.options['maxiter'] = 1
-        #root.linear_solver = ScipyGMRES()
+        #root.linear_solver = ScipyKrylov()
         #root.linear_solver.options['maxiter'] = 1
 
         #sub.nonlinear_solver = Newton()
-        #sub.linear_solver = ScipyGMRES()
+        #sub.linear_solver = ScipyKrylov()
         #sub.linear_solver.precon = DirectSolver()
 
         #prob.driver.add_desvar('p1.xx')

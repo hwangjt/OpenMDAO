@@ -9,7 +9,7 @@ from six import iteritems
 from parameterized import parameterized
 
 from openmdao.api import IndepVarComp, Group, Problem, ExplicitComponent, \
-                         COOJacobian, ScipyIterativeSolver, DirectSolver, DenseJacobian
+                         COOJacobian, ScipyKrylov, DirectSolver, DenseJacobian
 
 from openmdao.devtools.testutil import assert_rel_error
 
@@ -103,6 +103,7 @@ class SimpleCompConst(ExplicitComponent):
         outputs['g'] = np.outer(inputs['y1'] + inputs['y3'], inputs['y2']) + inputs['x'] * np.eye(2)
 
     def compute_partials(self, inputs, partials):
+        # note: all the partial derivatives are constant, so no calculations happen here.
         pass
 
 
@@ -176,7 +177,7 @@ class TestJacobianFeatures(unittest.TestCase):
 
         self.problem = Problem(model=model)
         self.problem.set_solver_print(level=0)
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
         model.jacobian = COOJacobian()
 
     def test_dependence(self):
@@ -265,7 +266,7 @@ class TestJacobianFeatures(unittest.TestCase):
 
         problem = Problem(model=model)
         problem.set_solver_print(level=0)
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
         model.jacobian = COOJacobian()
         model.add_subsystem('simple', SimpleCompConst(),
                             promotes=['x', 'y1', 'y2', 'y3', 'z', 'f', 'g'])
@@ -431,6 +432,11 @@ class TestJacobianFeatures(unittest.TestCase):
 
 class TestJacobianForDocs(unittest.TestCase):
     def test_const_jacobian(self):
+        import numpy as np
+
+        from openmdao.api import Problem, Group, IndepVarComp, DirectSolver, DenseJacobian
+        from openmdao.jacobians.tests.test_jacobian_features import SimpleCompConst
+
         model = Group()
         comp = IndepVarComp()
         for name, val in (('x', 1.), ('y1', np.ones(2)), ('y2', np.ones(2)),
@@ -461,6 +467,10 @@ class TestJacobianForDocs(unittest.TestCase):
         assert_rel_error(self, totals['g', 'y3'], [[1, 0], [1, 0], [0, 1], [0, 1]])
 
     def test_sparse_jacobian_in_place(self):
+        import numpy as np
+
+        from openmdao.api import Problem, Group, IndepVarComp, ExplicitComponent
+
         class SparsePartialComp(ExplicitComponent):
             def setup(self):
                 self.add_input('x', shape=(4,))
@@ -483,6 +493,7 @@ class TestJacobianForDocs(unittest.TestCase):
                 # (1, 3) entry
                 pd[3] = 4
 
+
         model = Group()
         comp = IndepVarComp()
         comp.add_output('x', np.ones(4))
@@ -500,6 +511,10 @@ class TestJacobianForDocs(unittest.TestCase):
         assert_rel_error(self, totals['example.f', 'input.x'], [[1., 0., 0., 0.], [0., 2., 3., 4.]])
 
     def test_sparse_jacobian(self):
+        import numpy as np
+
+        from openmdao.api import Problem, Group, IndepVarComp, ExplicitComponent
+
         class SparsePartialComp(ExplicitComponent):
             def setup(self):
                 self.add_input('x', shape=(4,))
@@ -528,6 +543,11 @@ class TestJacobianForDocs(unittest.TestCase):
         assert_rel_error(self, totals['example.f', 'input.x'], [[1., 0., 0., 0.], [0., 2., 3., 4.]])
 
     def test_sparse_jacobian_const(self):
+        import numpy as np
+        import scipy as sp
+
+        from openmdao.api import Problem, Group, IndepVarComp, ExplicitComponent
+
         class SparsePartialComp(ExplicitComponent):
             def setup(self):
                 self.add_input('x', shape=(4,))
@@ -561,6 +581,10 @@ class TestJacobianForDocs(unittest.TestCase):
         assert_rel_error(self, totals['example.f', 'input.y'], [[1., 0.], [0., 1.]])
 
     def test_fd_glob(self):
+        import numpy as np
+
+        from openmdao.api import Problem, Group, IndepVarComp, ExplicitComponent
+
         class FDPartialComp(ExplicitComponent):
             def setup(self):
                 self.add_input('x', shape=(4,))
@@ -601,6 +625,10 @@ class TestJacobianForDocs(unittest.TestCase):
         assert_rel_error(self, totals['example.f', 'input.y'], [[1., 0.], [0., 1.]], tolerance=1e-8)
 
     def test_fd_options(self):
+        import numpy as np
+
+        from openmdao.api import Problem, Group, IndepVarComp, ExplicitComponent
+
         class FDPartialComp(ExplicitComponent):
 
             def setup(self):

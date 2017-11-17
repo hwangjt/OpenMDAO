@@ -5,7 +5,7 @@ from six import iteritems
 
 import numpy as np
 
-from openmdao.api import Group, ExplicitComponent, IndepVarComp, Problem, NonLinearRunOnce, \
+from openmdao.api import Group, ExplicitComponent, IndepVarComp, Problem, NonlinearRunOnce, \
                          ImplicitComponent, NonlinearBlockGS
 from openmdao.devtools.testutil import assert_rel_error, TestLogger
 from openmdao.test_suite.components.impl_comp_array import TestImplCompArrayMatVec
@@ -306,7 +306,7 @@ class TestProblemCheckPartials(unittest.TestCase):
 
         units = model.add_subsystem('units', UnitCompBase(), promotes=['*'])
 
-        model.nonlinear_solver = NonLinearRunOnce()
+        model.nonlinear_solver = NonlinearRunOnce()
 
         p.setup()
         data = p.check_partials(suppress_output=True)
@@ -322,8 +322,7 @@ class TestProblemCheckPartials(unittest.TestCase):
         # The count is 5 because in check_partials, there are two calls to apply_nonlinear
         # when compute the fwd and rev analytic derivatives, then one call to apply_nonlinear
         # to compute the reference point for FD, then two additional calls for the two inputs.
-        comp = model.get_subsystem('units')
-        self.assertEqual(comp.run_count, 5)
+        self.assertEqual(units.run_count, 5)
 
     def test_scalar_val(self):
         class PassThrough(ExplicitComponent):
@@ -613,12 +612,10 @@ class TestProblemCheckPartials(unittest.TestCase):
 
         prob.set_solver_print(level=0)
 
-        opts = {'step' : 1e-2}
-
         prob.setup(check=False)
         prob.run_model()
 
-        data = prob.check_partials(suppress_output=True, global_options=opts)
+        data = prob.check_partials(suppress_output=True, step=1e-2)
 
         # This will fail unless you set the global step.
         x_error = data['comp']['f_xy', 'x']['rel error']
@@ -687,12 +684,10 @@ class TestProblemCheckPartials(unittest.TestCase):
 
         prob.set_solver_print(level=0)
 
-        opts = {'method' : 'cs'}
-
         prob.setup(check=False, force_alloc_complex=True)
         prob.run_model()
 
-        data = prob.check_partials(suppress_output=True, global_options=opts)
+        data = prob.check_partials(suppress_output=True, method='cs')
 
         x_error = data['comp']['f_xy', 'x']['rel error']
         self.assertLess(x_error.forward, 1e-5)
@@ -736,12 +731,10 @@ class TestProblemCheckPartials(unittest.TestCase):
 
         prob.set_solver_print(level=0)
 
-        opts = {'form' : 'central'}
-
         prob.setup(check=False)
         prob.run_model()
 
-        data = prob.check_partials(suppress_output=True, global_options=opts)
+        data = prob.check_partials(suppress_output=True, form='central')
 
         # This will fail unless you set the check_step.
         x_error = data['comp']['f_xy', 'x']['rel error']
@@ -786,12 +779,10 @@ class TestProblemCheckPartials(unittest.TestCase):
 
         prob.set_solver_print(level=0)
 
-        opts = {'step_calc' : 'rel'}
-
         prob.setup(check=False)
         prob.run_model()
 
-        data = prob.check_partials(suppress_output=True, global_options=opts)
+        data = prob.check_partials(suppress_output=True, step_calc='rel')
 
         # This will fail unless you set the global step.
         x_error = data['comp']['f_xy', 'x']['rel error']
@@ -885,6 +876,10 @@ class TestProblemCheckPartials(unittest.TestCase):
 class TestCheckPartialsFeature(unittest.TestCase):
 
     def test_feature_incorrect_jacobian(self):
+        import numpy as np
+
+        from openmdao.api import Group, ExplicitComponent, IndepVarComp, Problem
+
         class MyComp(ExplicitComponent):
             def setup(self):
                 self.add_input('x1', 3.0)
@@ -930,6 +925,10 @@ class TestCheckPartialsFeature(unittest.TestCase):
         assert_rel_error(self, x2_error.reverse, 9., 1e-8)
 
     def test_feature_check_partials_suppress(self):
+        import numpy as np
+
+        from openmdao.api import Group, ExplicitComponent, IndepVarComp, Problem
+
         class MyComp(ExplicitComponent):
             def setup(self):
                 self.add_input('x1', 3.0)
@@ -968,6 +967,10 @@ class TestCheckPartialsFeature(unittest.TestCase):
         print(data)
 
     def test_set_step_on_comp(self):
+        from openmdao.api import Problem, Group, IndepVarComp
+        from openmdao.core.tests.test_check_derivs import ParaboloidTricky
+        from openmdao.test_suite.components.paraboloid_mat_vec import ParaboloidMatVec
+
         prob = Problem()
         prob.model = Group()
 
@@ -990,6 +993,10 @@ class TestCheckPartialsFeature(unittest.TestCase):
         prob.check_partials()
 
     def test_set_step_global(self):
+        from openmdao.api import Problem, Group, IndepVarComp
+        from openmdao.core.tests.test_check_derivs import ParaboloidTricky
+        from openmdao.test_suite.components.paraboloid_mat_vec import ParaboloidMatVec
+
         prob = Problem()
         prob.model = Group()
 
@@ -1004,14 +1011,16 @@ class TestCheckPartialsFeature(unittest.TestCase):
 
         prob.set_solver_print(level=0)
 
-        opts = {'step' : 1e-2}
-
         prob.setup()
         prob.run_model()
 
-        prob.check_partials(global_options=opts)
+        prob.check_partials(step=1e-2)
 
     def test_set_method_on_comp(self):
+        from openmdao.api import Problem, Group, IndepVarComp
+        from openmdao.core.tests.test_check_derivs import ParaboloidTricky
+        from openmdao.test_suite.components.paraboloid_mat_vec import ParaboloidMatVec
+
         prob = Problem()
         prob.model = Group()
 
@@ -1034,6 +1043,10 @@ class TestCheckPartialsFeature(unittest.TestCase):
         prob.check_partials()
 
     def test_set_method_global(self):
+        from openmdao.api import Problem, Group, IndepVarComp
+        from openmdao.core.tests.test_check_derivs import ParaboloidTricky
+        from openmdao.test_suite.components.paraboloid_mat_vec import ParaboloidMatVec
+
         prob = Problem()
         prob.model = Group()
 
@@ -1048,14 +1061,16 @@ class TestCheckPartialsFeature(unittest.TestCase):
 
         prob.set_solver_print(level=0)
 
-        opts = {'method' : 'cs'}
-
         prob.setup(force_alloc_complex=True)
         prob.run_model()
 
-        prob.check_partials(global_options=opts)
+        prob.check_partials(method='cs')
 
     def test_set_form_on_comp(self):
+        from openmdao.api import Problem, Group, IndepVarComp
+        from openmdao.core.tests.test_check_derivs import ParaboloidTricky
+        from openmdao.test_suite.components.paraboloid_mat_vec import ParaboloidMatVec
+
         prob = Problem()
         prob.model = Group()
 
@@ -1078,6 +1093,10 @@ class TestCheckPartialsFeature(unittest.TestCase):
         prob.check_partials()
 
     def test_set_form_global(self):
+        from openmdao.api import Problem, Group, IndepVarComp
+        from openmdao.core.tests.test_check_derivs import ParaboloidTricky
+        from openmdao.test_suite.components.paraboloid_mat_vec import ParaboloidMatVec
+
         prob = Problem()
         prob.model = Group()
 
@@ -1092,14 +1111,16 @@ class TestCheckPartialsFeature(unittest.TestCase):
 
         prob.set_solver_print(level=0)
 
-        opts = {'form' : 'central'}
-
         prob.setup()
         prob.run_model()
 
-        prob.check_partials(global_options=opts)
+        prob.check_partials(form='central')
 
     def test_set_step_calc_on_comp(self):
+        from openmdao.api import Problem, Group, IndepVarComp
+        from openmdao.core.tests.test_check_derivs import ParaboloidTricky
+        from openmdao.test_suite.components.paraboloid_mat_vec import ParaboloidMatVec
+
         prob = Problem()
         prob.model = Group()
 
@@ -1122,6 +1143,9 @@ class TestCheckPartialsFeature(unittest.TestCase):
         prob.check_partials()
 
     def test_set_step_calc_global(self):
+        from openmdao.api import Problem, Group, IndepVarComp
+        from openmdao.core.tests.test_check_derivs import ParaboloidTricky
+
         prob = Problem()
         prob.model = Group()
 
@@ -1134,12 +1158,10 @@ class TestCheckPartialsFeature(unittest.TestCase):
 
         prob.set_solver_print(level=0)
 
-        opts = {'step_calc' : 'rel'}
-
         prob.setup()
         prob.run_model()
 
-        prob.check_partials(global_options=opts)
+        prob.check_partials(step_calc='rel')
 
 
 
@@ -1244,7 +1266,7 @@ class TestProblemCheckTotals(unittest.TestCase):
         prob.model = model = Group()
         model.add_subsystem('x_param1', IndepVarComp('x1', np.ones((4))),
                             promotes=['x1'])
-        model.add_subsystem('mycomp', ArrayComp2D(), promotes=['x1', 'y1'])
+        mycomp = model.add_subsystem('mycomp', ArrayComp2D(), promotes=['x1', 'y1'])
 
         model.add_design_var('x1', indices=[1, 3])
         model.add_constraint('y1', indices=[0, 2])
@@ -1254,7 +1276,7 @@ class TestProblemCheckTotals(unittest.TestCase):
         prob.setup(check=False, mode='fwd')
         prob.run_model()
 
-        Jbase = model.get_subsystem('mycomp').JJ
+        Jbase = mycomp.JJ
         of = ['y1']
         wrt = ['x1']
 
@@ -1277,7 +1299,7 @@ class TestProblemCheckTotals(unittest.TestCase):
         prob.model = model = Group()
         model.add_subsystem('x_param1', IndepVarComp('x1', np.ones((4))),
                             promotes=['x1'])
-        model.add_subsystem('mycomp', ArrayComp2D(), promotes=['x1', 'y1'])
+        mycomp = model.add_subsystem('mycomp', ArrayComp2D(), promotes=['x1', 'y1'])
 
         model.add_design_var('x1', indices=[1, 3])
         model.add_objective('y1', index=1)
@@ -1287,7 +1309,7 @@ class TestProblemCheckTotals(unittest.TestCase):
         prob.setup(check=False, mode='fwd')
         prob.run_model()
 
-        Jbase = model.get_subsystem('mycomp').JJ
+        Jbase = mycomp.JJ
         of = ['y1']
         wrt = ['x1']
 

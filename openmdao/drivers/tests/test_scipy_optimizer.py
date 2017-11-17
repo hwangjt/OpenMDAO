@@ -4,7 +4,7 @@ import unittest
 
 import numpy as np
 
-from openmdao.api import Problem, Group, IndepVarComp, ExecComp, ScipyOptimizer
+from openmdao.api import Problem, Group, IndepVarComp, ExecComp, ScipyOptimizer, ExplicitComponent
 from openmdao.devtools.testutil import assert_rel_error
 from openmdao.test_suite.components.expl_comp_array import TestExplCompArrayDense
 from openmdao.test_suite.components.paraboloid import Paraboloid
@@ -240,6 +240,39 @@ class TestScipyOptimizer(unittest.TestCase):
         # (Note, loose tol because of appveyor py3.4 machine.)
         assert_rel_error(self, prob['x'], 7.16667, 1e-4)
         assert_rel_error(self, prob['y'], -7.833334, 1e-4)
+
+    def test_unsupported_equality(self):
+
+        prob = Problem()
+        model = prob.model = Group()
+
+        model.add_subsystem('p1', IndepVarComp('x', 50.0), promotes=['*'])
+        model.add_subsystem('p2', IndepVarComp('y', 50.0), promotes=['*'])
+        model.add_subsystem('comp', Paraboloid(), promotes=['*'])
+        model.add_subsystem('con', ExecComp('c = - x + y'), promotes=['*'])
+
+        prob.set_solver_print(level=0)
+
+        prob.driver = ScipyOptimizer()
+        prob.driver.options['optimizer'] = 'COBYLA'
+        prob.driver.options['tol'] = 1e-9
+        prob.driver.options['disp'] = False
+
+        model.add_design_var('x', lower=-50.0, upper=50.0)
+        model.add_design_var('y', lower=-50.0, upper=50.0)
+        model.add_objective('f_xy')
+        model.add_constraint('c', equals=-15.0)
+
+        prob.setup(check=False)
+
+        with self.assertRaises(Exception) as raises_cm:
+            prob.run_driver()
+
+        exception = raises_cm.exception
+
+        msg = "Constraints of type 'eq' not handled by COBYLA."
+
+        self.assertEqual(exception.args[0], msg)
 
     def test_simple_paraboloid_double_sided_low(self):
 
@@ -611,10 +644,61 @@ class TestScipyOptimizer(unittest.TestCase):
         max_defect = np.max(np.abs(p['defect.defect']))
         assert_rel_error(self, max_defect, 0.0, 1e-10)
 
+    def test_reraise_exception_from_callbacks(self):
+        class ReducedActuatorDisc(ExplicitComponent):
+
+            def setup(self):
+
+                # Inputs
+                self.add_input('a', 0.5, desc="Induced Velocity Factor")
+                self.add_input('Vu', 10.0, units="m/s", desc="Freestream air velocity, upstream of rotor")
+
+                # Outputs
+                self.add_output('Vd', 0.0, units="m/s",
+                                desc="Slipstream air velocity, downstream of rotor")
+
+            def compute(self, inputs, outputs):
+                a = inputs['a']
+                Vu = inputs['Vu']
+
+                outputs['Vd'] = Vu * (1 - 2 * a)
+
+            def compute_partials(self, inputs, J):
+                Vu = inputs['Vu']
+
+                J['Vd', 'a'] = -2.0 * Vu
+
+        prob = Problem()
+        indeps = prob.model.add_subsystem('indeps', IndepVarComp(), promotes=['*'])
+        indeps.add_output('a', .5)
+        indeps.add_output('Vu', 10.0, units='m/s')
+
+        prob.model.add_subsystem('a_disk', ReducedActuatorDisc(),
+                                 promotes_inputs=['a', 'Vu'])
+
+        # setup the optimization
+        prob.driver = ScipyOptimizer()
+        prob.driver.options['optimizer'] = 'SLSQP'
+
+        prob.model.add_design_var('a', lower=0., upper=1.)
+        # negative one so we maximize the objective
+        prob.model.add_objective('a_disk.Vd', scaler=-1)
+
+        prob.setup()
+
+        with self.assertRaises(KeyError) as context:
+            prob.run_driver()
+
+        msg = 'Variable name pair ("Vd", "a") must first be declared.'
+        self.assertTrue(msg in str(context.exception))
+
 
 class TestScipyOptimizerFeatures(unittest.TestCase):
 
     def test_feature_basic(self):
+        from openmdao.api import Problem, Group, IndepVarComp, ScipyOptimizer
+        from openmdao.test_suite.components.paraboloid import Paraboloid
+
         prob = Problem()
         model = prob.model = Group()
 
@@ -638,6 +722,9 @@ class TestScipyOptimizerFeatures(unittest.TestCase):
         assert_rel_error(self, prob['y'], -7.3333333, 1e-6)
 
     def test_feature_optimizer(self):
+        from openmdao.api import Problem, Group, IndepVarComp, ScipyOptimizer
+        from openmdao.test_suite.components.paraboloid import Paraboloid
+
         prob = Problem()
         model = prob.model = Group()
 
@@ -660,6 +747,9 @@ class TestScipyOptimizerFeatures(unittest.TestCase):
         assert_rel_error(self, prob['y'], -7.3333333, 1e-6)
 
     def test_feature_maxiter(self):
+        from openmdao.api import Problem, Group, IndepVarComp, ScipyOptimizer
+        from openmdao.test_suite.components.paraboloid import Paraboloid
+
         prob = Problem()
         model = prob.model = Group()
 
@@ -681,6 +771,9 @@ class TestScipyOptimizerFeatures(unittest.TestCase):
         assert_rel_error(self, prob['y'], -7.3333333, 1e-6)
 
     def test_feature_tol(self):
+        from openmdao.api import Problem, Group, IndepVarComp, ScipyOptimizer
+        from openmdao.test_suite.components.paraboloid import Paraboloid
+
         prob = Problem()
         model = prob.model = Group()
 

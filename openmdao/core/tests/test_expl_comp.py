@@ -35,8 +35,7 @@ class RectanglePartial(RectangleComp):
 
 class RectangleJacVec(RectangleComp):
 
-    def compute_jacvec_product(self, inputs, outputs,
-                               d_inputs, d_outputs, mode):
+    def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
             if 'area' in d_outputs:
                 if 'length' in d_inputs:
@@ -70,6 +69,14 @@ class RectangleGroup(Group):
 class ExplCompTestCase(unittest.TestCase):
 
     def test_simple(self):
+        prob = Problem(RectangleComp())
+        prob.setup(check=False)
+        prob.run_model()
+
+    def test_feature_simple(self):
+        from openmdao.api import Problem
+        from openmdao.core.tests.test_expl_comp import RectangleComp
+
         prob = Problem(RectangleComp())
         prob.setup(check=False)
         prob.run_model()

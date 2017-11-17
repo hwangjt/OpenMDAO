@@ -8,7 +8,7 @@ import numpy as np
 from openmdao.solvers.linear.tests.linear_test_base import LinearSolverTests
 from openmdao.devtools.testutil import assert_rel_error
 from openmdao.api import LinearBlockGS, Problem, Group, ImplicitComponent, IndepVarComp, \
-    DirectSolver, NewtonSolver, ScipyIterativeSolver, AssembledJacobian, ExecComp, NonlinearBlockGS
+    DirectSolver, NewtonSolver, ScipyKrylov, AssembledJacobian, ExecComp, NonlinearBlockGS
 from openmdao.test_suite.components.sellar import SellarImplicitDis1, SellarImplicitDis2, \
     SellarDis1withDerivatives, SellarDis2withDerivatives
 from openmdao.test_suite.components.expl_comp_simple import TestExplCompSimpleDense
@@ -114,7 +114,7 @@ class TestBGSSolver(LinearSolverTests.LinearSolverTestCase):
 
         model.nonlinear_solver = NewtonSolver()
         model.nonlinear_solver.options['maxiter'] = 5
-        model.linear_solver = ScipyIterativeSolver()
+        model.linear_solver = ScipyKrylov()
         model.linear_solver.precon = self.linear_solver_class()
 
         prob.setup(check=False)
@@ -173,6 +173,11 @@ class TestBGSSolver(LinearSolverTests.LinearSolverTestCase):
 class TestBGSSolverFeature(unittest.TestCase):
 
     def test_specify_solver(self):
+        import numpy as np
+
+        from openmdao.api import Problem, Group, IndepVarComp, ExecComp, LinearBlockGS, NonlinearBlockGS
+        from openmdao.test_suite.components.sellar import SellarDis1withDerivatives, SellarDis2withDerivatives
+
         prob = Problem()
         model = prob.model = Group()
 
@@ -203,6 +208,11 @@ class TestBGSSolverFeature(unittest.TestCase):
         assert_rel_error(self, J['obj', 'z'][0][1], 1.78448534, .00001)
 
     def test_feature_maxiter(self):
+        import numpy as np
+
+        from openmdao.api import Problem, Group, IndepVarComp, ExecComp, LinearBlockGS, NonlinearBlockGS
+        from openmdao.test_suite.components.sellar import SellarDis1withDerivatives, SellarDis2withDerivatives
+
         prob = Problem()
         model = prob.model = Group()
 
@@ -235,6 +245,11 @@ class TestBGSSolverFeature(unittest.TestCase):
         assert_rel_error(self, J['obj', 'z'][0][1], 1.78022500547, .00001)
 
     def test_feature_atol(self):
+        import numpy as np
+
+        from openmdao.api import Problem, Group, IndepVarComp, ExecComp, LinearBlockGS, NonlinearBlockGS
+        from openmdao.test_suite.components.sellar import SellarDis1withDerivatives, SellarDis2withDerivatives
+
         prob = Problem()
         model = prob.model = Group()
 
@@ -267,6 +282,11 @@ class TestBGSSolverFeature(unittest.TestCase):
         assert_rel_error(self, J['obj', 'z'][0][1], 1.78456955704, .00001)
 
     def test_feature_rtol(self):
+        import numpy as np
+
+        from openmdao.api import Problem, Group, IndepVarComp, ExecComp, LinearBlockGS, NonlinearBlockGS
+        from openmdao.test_suite.components.sellar import SellarDis1withDerivatives, SellarDis2withDerivatives
+
         prob = Problem()
         model = prob.model = Group()
 

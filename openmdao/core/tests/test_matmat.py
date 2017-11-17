@@ -159,7 +159,7 @@ class LGLFit(ExplicitComponent):
     an approximation of arclength.
     """
     def initialize(self):
-        self.metadata.declare(name='num_nodes', required=True, type_=int)
+        self.metadata.declare(name='num_nodes', types=int)
 
     def setup(self):
         n = self.metadata['num_nodes']
@@ -188,7 +188,7 @@ class LGLFit(ExplicitComponent):
 class DefectComp(ExplicitComponent):
 
     def initialize(self):
-        self.metadata.declare(name='num_nodes', required=True, type_=int)
+        self.metadata.declare(name='num_nodes', types=int)
 
     def setup(self):
         n = self.metadata['num_nodes']
@@ -208,7 +208,7 @@ class DefectComp(ExplicitComponent):
 class ArcLengthFunction(ExplicitComponent):
 
     def initialize(self):
-        self.metadata.declare(name='num_nodes', required=True, type_=int)
+        self.metadata.declare(name='num_nodes', types=int)
 
     def setup(self):
         n = self.metadata['num_nodes']
@@ -232,7 +232,7 @@ class ArcLengthQuadrature(ExplicitComponent):
     Computes the arclength of a polynomial segment whose values are given at the LGL nodes.
     """
     def initialize(self):
-        self.metadata.declare(name='num_nodes', required=True, type_=int)
+        self.metadata.declare(name='num_nodes', types=int)
 
     def setup(self):
         n = self.metadata['num_nodes']
@@ -263,7 +263,7 @@ class ArcLengthQuadrature(ExplicitComponent):
 class Phase(Group):
 
     def initialize(self):
-        self.metadata.declare('order', type_=int, default=10)
+        self.metadata.declare('order', types=int, default=10)
 
     def setup(self):
         order = self.metadata['order']
@@ -303,7 +303,7 @@ class Phase(Group):
 class Summer(ExplicitComponent):
 
     def initialize(self):
-        self.metadata.declare('n_phases', type_=int, required=True)
+        self.metadata.declare('n_phases', types=int)
 
     def setup(self):
         self.add_output('total_arc_length')
@@ -463,8 +463,7 @@ class JacVec(ExplicitComponent):
     def compute(self, inputs, outputs):
         outputs['f_xy'] = inputs['x'] * inputs['y']
 
-    def compute_jacvec_product(self, inputs, outputs, d_inputs, d_outputs,
-                               mode):
+    def compute_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         if mode == 'fwd':
             if 'x' in d_inputs:
                 d_outputs['f_xy'] += d_inputs['x'] * inputs['y']
@@ -478,10 +477,9 @@ class JacVec(ExplicitComponent):
                 d_inputs['y'] += d_fxy * inputs['x']
 
 class MultiJacVec(JacVec):
-    def compute_multi_jacvec_product(self, inputs, outputs, d_inputs, d_outputs,
-                                     mode):
+    def compute_multi_jacvec_product(self, inputs, d_inputs, d_outputs, mode):
         # same as compute_jacvec_product in this case
-        self.compute_jacvec_product(inputs, outputs, d_inputs, d_outputs, mode)
+        self.compute_jacvec_product(inputs, d_inputs, d_outputs, mode)
 
 
 class ComputeMultiJacVecTestCase(unittest.TestCase):

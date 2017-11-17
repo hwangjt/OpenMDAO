@@ -1,4 +1,4 @@
-.. _Examples:
+.. _OpenMDAO_Examples:
 
 ********
 Examples
@@ -17,3 +17,5 @@ If you need to learn the basics of how things work, please see the :ref:`User Gu
     betz_limit/betz.rst
     hohmann_transfer/hohmann_transfer.rst
     keplers_equation/keplers_equation.rst
+    circuit_analysis.rst
+    beam_optimization/beam_optimization.rst

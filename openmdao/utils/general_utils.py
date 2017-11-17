@@ -248,7 +248,6 @@ def format_as_float_or_array(name, values, val_if_none=0.0, flatten=False):
     """
     # Convert adder to ndarray/float as necessary
     if isinstance(values, np.ndarray):
-        values = values
         if flatten:
             values = values.flatten()
     elif not isinstance(values, string_types) \
@@ -326,10 +325,8 @@ def find_matches(pattern, var_list):
     list
         Variable names that match pattern.
     """
-    glob_patterns = {'*', '?', '['}
-
-    if glob_patterns.intersection(pattern):
-        return [name for name in var_list if fnmatchcase(name, pattern)]
+    if pattern == '*':
+        return var_list
     elif pattern in var_list:
         return [pattern]
-    return []
+    return [name for name in var_list if fnmatchcase(name, pattern)]

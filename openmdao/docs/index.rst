@@ -1,6 +1,6 @@
-**********************
-OpenMDAO Documentation
-**********************
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Documentation for OpenMDAO version: |release|
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 OpenMDAO is an open-source high-performance computing platform for systems analysis and multidisciplinary optimization, written in Python.
 It enables you to decompose your models, making them easier to build and maintain, while still solving them in a tightly coupled manner with efficient parallel numerical methods.
@@ -31,9 +31,8 @@ They explain important secondary concepts that you will run into when working wi
 Reference Guide:
 ****************************
 
-These docs are intended to be used by as a reference by more experienced users.
-They provide useful code snippets, explain a particular feature in detail,
-or document the arguments/options/settings for a specific method, Component, Driver, or Solver.
+These docs are intended to be used by as a reference by users looking for explanation of a particular feature in detail or
+documentation of the arguments/options/settings for a specific method, Component, Driver, or Solver.
 
 
 .. toctree::
@@ -54,6 +53,7 @@ Other Useful Docs
     :caption: Other Docs
     :name: otherdocs
 
-    api_translation/index.rst
+    other/api_translation.rst
+    other/file_wrap.rst
     _srcdocs/index.rst
     developer_docs/index.rst

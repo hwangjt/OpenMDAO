@@ -92,6 +92,8 @@ class Jacobian(object):
             self._subjacs[abs_key].data *= val  # DOK not supported
         elif len(jac) == 3:
             self._subjacs[abs_key][0] *= val
+        else:
+            self._subjacs[abs_key] *= val
 
     def __contains__(self, key):
         """
@@ -169,16 +171,24 @@ class Jacobian(object):
         subjac : int or float or ndarray or sparse matrix
             sub-Jacobian as a scalar, vector, array, or AIJ list or tuple.
         """
-        if not issparse(subjac) and not self._override_checks:
+        if not issparse(subjac):
             # np.promote_types will choose the smallest dtype that can contain both arguments
             subjac = np.atleast_1d(subjac)
             safe_dtype = np.promote_types(subjac.dtype, float)
             subjac = subjac.astype(safe_dtype, copy=False)
-            if abs_key not in self._subjacs_info:
-                rows = None
-            else:
+
+            # Bail here so that we allow top level jacobians to be of reduced size when indices are
+            # specified on driver vars.
+            if self._override_checks:
+                self._subjacs[abs_key] = subjac
+                return
+
+            if abs_key in self._subjacs_info:
                 subjac_info = self._subjacs_info[abs_key][0]
                 rows = subjac_info['rows']
+            else:
+                rows = None
+
             if rows is None:
                 # Dense subjac
                 shape = self._abs_key2shape(abs_key)
@@ -208,34 +218,6 @@ class Jacobian(object):
                     self._subjacs[abs_key] = [subjac.copy(), rows, subjac_info['cols']]
         else:
             self._subjacs[abs_key] = subjac
-
-    def _iter_abs_keys(self, vec_name):
-        """
-        Iterate over subjacs keyed by absolute names.
-
-        This includes only subjacs that have been set and are part of the current system.
-
-        Parameters
-        ----------
-        vec_name : str
-            The name of the current RHS vector.
-        """
-        system = self._system
-        subjacs = self._subjacs
-
-        # FIXME: these keys should really be cached in system, not as they were previously
-        # in precompute_iter_keys, since they had to be constantly recomputed whenever the
-        # jacobian's system changed.  There is an ordering issue with caching them in system
-        # because this method gets called once (for scaling) prior to the first call to
-        # linearize for each system which can add keys to the jacobian, so we'll need to
-        # make sure we recompute the keys for each system after the first call to lineraize
-        # after a new jacobian has been set.
-        for res_name in system._var_relevant_names[vec_name]['output']:
-            for type_ in ('output', 'input'):
-                for name in system._var_relevant_names[vec_name][type_]:
-                    key = (res_name, name)
-                    if key in subjacs:
-                        yield key
 
     def _initialize(self):
         """

@@ -280,6 +280,7 @@ class Problem(object):
             raise RuntimeError("The `setup` method must be called before `run_model`.")
 
         self.final_setup()
+        self.model._clear_iprint()
         return self.model.run_solve_nonlinear()
 
     def run_driver(self):
@@ -295,6 +296,7 @@ class Problem(object):
             raise RuntimeError("The `setup` method must be called before `run_driver`.")
 
         self.final_setup()
+        self.model._clear_iprint()
         with self.model._scaled_context_all():
             return self.driver.run()
 
@@ -336,7 +338,7 @@ class Problem(object):
         """
         self.driver.cleanup()
 
-    def setup(self, vector_class=DefaultVector, check=True, logger=None, mode='auto',
+    def setup(self, vector_class=DefaultVector, check=True, logger=None, mode='rev',
               force_alloc_complex=False):
         """
         Set up the model hierarchy.
@@ -356,8 +358,7 @@ class Problem(object):
             Object for logging config checks if check is True.
         mode : string
             Derivatives calculation mode, 'fwd' for forward, and 'rev' for
-            reverse (adjoint). Default is 'auto', which lets OpenMDAO choose
-            the best mode for your problem.
+            reverse (adjoint). Default is 'rev'.
         force_alloc_complex : bool
             Force allocation of imaginary part in nonlinear vectors. OpenMDAO can generally
             detect when you need to do this, but in some cases (e.g., complex step is used
@@ -378,13 +379,10 @@ class Problem(object):
                    % vector_class.__name__)
             raise ValueError(msg)
 
-        if mode not in ['fwd', 'rev', 'auto']:
-            msg = "Unsupported mode: '%s'" % mode
+        if mode not in ['fwd', 'rev']:
+            msg = "Unsupported mode: '%s'. Use either 'fwd' or 'rev'." % mode
             raise ValueError(msg)
 
-        # TODO: fix this so it computes the proper type based on sizes of VOIs
-        if mode == 'auto':
-            mode = 'rev'
         self._mode = mode
 
         model._setup(comm, 'full', mode)
@@ -434,7 +432,9 @@ class Problem(object):
             self._set_initial_conditions()
 
     def check_partials(self, logger=None, comps=None, compact_print=False,
-                       abs_err_tol=1e-6, rel_err_tol=1e-6, global_options=None,
+                       abs_err_tol=1e-6, rel_err_tol=1e-6,
+                       method='fd', step=None, form=DEFAULT_FD_OPTIONS['form'],
+                       step_calc=DEFAULT_FD_OPTIONS['step_calc'],
                        force_dense=True, suppress_output=False):
         """
         Check partial derivatives comprehensively for all components in your model.
@@ -455,14 +455,21 @@ class Problem(object):
             Threshold value for relative error.  Errors about this value will have a '*' displayed
             next to them in output, making them easy to search for. Note at times there may be a
             significant relative error due to a minor absolute error.  Default is 1.0E-6.
-        global_options : dict
-            Dictionary of options that are used as default unless overridden by calling
-            set_check_partial_options on a component. Only 'form', 'step', 'step_calc', and
-            'method' can be specified in this way.
+        method : str
+            Method, 'fd' for finite difference or 'cs' for complex step. Default is 'fd'.
+        step : float
+            Step size for approximation. Default is None.
+        form : string
+            Form for finite difference, can be 'forward', 'backward', or 'central'. The
+            default value is the value of DEFAULT_FD_OPTIONS['form']. Default is
+            the value of DEFAULT_FD_OPTIONS['form']
+        step_calc : string
+            Step type for finite difference, can be 'abs' for absolute', or 'rel' for
+            relative. The default value is the value of DEFAULT_FD_OPTIONS['step_calc']
         force_dense : bool
-            If True, analytic derivatives will be coerced into arrays.
+            If True, analytic derivatives will be coerced into arrays. Default is True.
         suppress_output : bool
-            Set to True to suppress all output.
+            Set to True to suppress all output. Default is False.
 
         Returns
         -------
@@ -482,9 +489,6 @@ class Problem(object):
         if self._setup_status < 2:
             self.final_setup()
 
-        if not global_options:
-            global_options = {}
-
         model = self.model
         logger = logger if logger else get_logger('check_partials')
 
@@ -500,7 +504,7 @@ class Problem(object):
             if extra:
                 msg = 'The following are not valid comp names: {}'.format(sorted(list(extra)))
                 raise ValueError(msg)
-            comps = [model.get_subsystem(c_name) for c_name in comps]
+            comps = [model._get_subsystem(c_name) for c_name in comps]
 
         current_mode = self._mode
         self.set_solver_print(level=0)
@@ -718,7 +722,6 @@ class Problem(object):
                 local_wrt = rel_key[1]
 
                 # Determine if fd or cs.
-                method = global_options.get('method', 'fd')
                 if local_wrt in local_opts:
                     local_method = local_opts[local_wrt]['method']
                     if local_method:
@@ -741,10 +744,13 @@ class Problem(object):
                 elif method == 'fd':
                     defaults = DEFAULT_FD_OPTIONS
 
-                    fd_options['form'] = global_options.get('form', defaults['form'])
-                    fd_options['step_calc'] = global_options.get('step_calc', defaults['step_calc'])
+                    fd_options['form'] = form
+                    fd_options['step_calc'] = step_calc
 
-                fd_options['step'] = global_options.get('step', defaults['step'])
+                if step:
+                    fd_options['step'] = step
+                else:
+                    fd_options['step'] = defaults['step']
 
                 # Precedence: component options > global options > defaults
                 if local_wrt in local_opts:
@@ -808,15 +814,17 @@ class Problem(object):
             next to them in output, making them easy to search for. Note at times there may be a
             significant relative error due to a minor absolute error.  Default is 1.0E-6.
         method : str
-            Method, 'fd' for finite difference or 'cs' for complex step.
+            Method, 'fd' for finite difference or 'cs' for complex step. Default is 'fd'
         step : float
-            Step size for approximation.
+            Step size for approximation. Default is 1e-6.
         form : string
-            Form for finite difference, can be 'forward', 'backward', or 'central'.
+            Form for finite difference, can be 'forward', 'backward', or 'central'. Default
+            'forward'.
         step_calc : string
             Step type for finite difference, can be 'abs' for absolute', or 'rel' for relative.
+            Default is 'abs'.
         suppress_output : bool
-            Set to True to suppress all output.
+            Set to True to suppress all output. Default is False.
 
         Returns
         -------
@@ -983,30 +991,31 @@ class Problem(object):
             else:
                 model.approx_totals(method='fd')
 
-            # Initialization based on driver (or user) -requested "of" and "wrt".
-            if not model._owns_approx_jac or model._owns_approx_of != set(of) \
-               or model._owns_approx_wrt != set(wrt):
-                model._owns_approx_of = set(of)
-                model._owns_approx_wrt = set(wrt)
+        # Initialization based on driver (or user) -requested "of" and "wrt".
+        if not model._owns_approx_jac or model._owns_approx_of != set(of) \
+           or model._owns_approx_wrt != set(wrt):
+            model._owns_approx_of = set(of)
+            model._owns_approx_wrt = set(wrt)
 
-                # Support for indices defined on driver vars.
-                dvs = self.driver._designvars
-                cons = self.driver._cons
-                objs = self.driver._objs
+            # Support for indices defined on driver vars.
+            dvs = self.driver._designvars
+            cons = self.driver._cons
+            objs = self.driver._objs
 
-                response_idx = {key: val['indices'] for key, val in iteritems(cons)
-                                if val['indices'] is not None}
-                for key, val in iteritems(objs):
-                    if val['indices'] is not None:
-                        response_idx[key] = val['indices']
+            response_idx = {key: val['indices'] for key, val in iteritems(cons)
+                            if val['indices'] is not None}
+            for key, val in iteritems(objs):
+                if val['indices'] is not None:
+                    response_idx[key] = val['indices']
 
-                model._owns_approx_of_idx = response_idx
+            model._owns_approx_of_idx = response_idx
 
-                model._owns_approx_wrt_idx = {key: val['indices'] for key, val in iteritems(dvs)
-                                              if val['indices'] is not None}
+            model._owns_approx_wrt_idx = {key: val['indices'] for key, val in iteritems(dvs)
+                                          if val['indices'] is not None}
 
         model._setup_jacobians(recurse=False)
 
+        # Need to temporarily disable size checking to support indices in des_vars and quantities.
         model.jacobian._override_checks = True
 
         # Linearize Model
