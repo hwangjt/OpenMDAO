@@ -19,13 +19,7 @@ class NonlinearBlockJac(NonlinearSolver):
 
         with Recording('NonlinearBlockJac', 0, self) as rec:
             for subsys in self._system._subsystems_myproc:
-                try:
-                    subsys._solve_nonlinear()
-                    failed = False
-                except AnalysisError:
-                    failed = True
-                if np.any(self._system.comm.allgather(failed)):
-                    raise AnalysisError('In nonlinear block Jacobi iteration for system {}, a subsystem had an analysis failure')
+                subsys._solve_nonlinear()
             self._system._check_reconf_update()
             rec.abs = 0.0
             rec.rel = 0.0
